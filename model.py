@@ -305,26 +305,10 @@ class DCGAN(object):
                     conv2d(h1, 128, 5, 5, 2, 2, name='d_h2_conv')))
                 h3 = lrelu(self.d_bn3(
                     conv2d(h2, 256, 5, 5, 2, 2, name='d_h3_conv')))
-                h4 = lrelu(
-                    self.d_bn4(
-                        conv2d(
-                            h3,
-                            256,
-                            3,
-                            3,
-                            2,
-                            2,
-                            name='d_h4_conv')))
-                h5 = lrelu(
-                    self.d_bn5(
-                        conv2d(
-                            h4,
-                            256 * 4 * 4,
-                            3,
-                            3,
-                            2,
-                            2,
-                            name='d_h5_conv')))
+                h4 = lrelu(self.d_bn4(
+                    conv2d(h3, 256, 3, 3, 2, 2, name='d_h4_conv')))
+                h5 = lrelu(self.d_bn5(
+                    conv2d(h4, 256 * 4 * 4, 3, 3, 2, 2, name='d_h5_conv')))
                 h6 = linear(tf.reshape(
                     h5, [self.batch_size, -1]), 1, 'd_h4_lin')
 
@@ -353,13 +337,13 @@ class DCGAN(object):
         with tf.variable_scope("generator") as scope:
             if not self.y_dim:
                 # 2 fully-connected layers
-                h0 = tf.nn.relu(
+                h0 = lrelu(
                     self.g_bn0(
                         linear(
                             z,
                             self.gfc_dim,
                             'g_h0_lin')))
-                h1 = tf.nn.relu(
+                h1 = lrelu(
                     self.g_bn1(
                         linear(
                             h0,
@@ -367,27 +351,27 @@ class DCGAN(object):
                             'g_h1_lin')))
                 h1 = tf.reshape(h1, [self.batch_size, 2, 2, 256 * 4 * 4])
                 # 6 deconv layers with 2-by-2 upsampling
-                h2 = tf.nn.relu(
+                h2 = lrelu(
                     self.g_bn2(
                         deconv2d(
                             h1, [
                                 self.batch_size, 4, 4, 256], 3, 3, 2, 2, name='g_h2')))
-                h3 = tf.nn.relu(
+                h3 = lrelu(
                     self.g_bn3(
                         deconv2d(
                             h2, [
                                 self.batch_size, 8, 8, 256], 3, 3, 2, 2, name='g_h3')))
-                h4 = tf.nn.relu(
+                h4 = lrelu(
                     self.g_bn4(
                         deconv2d(
                             h3, [
                                 self.batch_size, 16, 16, 128], 5, 5, 2, 2, name='g_h4')))
-                h5 = tf.nn.relu(
+                h5 = lrelu(
                     self.g_bn5(
                         deconv2d(
                             h4, [
                                 self.batch_size, 32, 32, 92], 5, 5, 2, 2, name='g_h5')))
-                h6 = tf.nn.relu(
+                h6 = lrelu(
                     self.g_bn6(
                         deconv2d(
                             h5, [
@@ -437,13 +421,13 @@ class DCGAN(object):
 
             if not self.y_dim:
                 # 2 fully-connected layers
-                h0 = tf.nn.relu(
+                h0 = lrelu(
                     self.g_bn0(
                         linear(
                             z,
                             self.gfc_dim,
                             'g_h0_lin'), train=False))
-                h1 = tf.nn.relu(
+                h1 = lrelu(
                     self.g_bn1(
                         linear(
                             h0,
@@ -451,27 +435,27 @@ class DCGAN(object):
                             'g_h1_lin'), train=False))
                 h1 = tf.reshape(h1, [self.batch_size, 2, 2, 256 * 4 * 4])
                 # 6 deconv layers with 2-by-2 upsampling
-                h2 = tf.nn.relu(
+                h2 = lrelu(
                     self.g_bn2(
                         deconv2d(
                             h1, [
                                 self.batch_size, 4, 4, 256], 3, 3, 2, 2, name='g_h2'), train=False))
-                h3 = tf.nn.relu(
+                h3 = lrelu(
                     self.g_bn3(
                         deconv2d(
                             h2, [
                                 self.batch_size, 8, 8, 256], 3, 3, 2, 2, name='g_h3'), train=False))
-                h4 = tf.nn.relu(
+                h4 = lrelu(
                     self.g_bn4(
                         deconv2d(
                             h3, [
                                 self.batch_size, 16, 16, 128], 5, 5, 2, 2, name='g_h4'), train=False))
-                h5 = tf.nn.relu(
+                h5 = lrelu(
                     self.g_bn5(
                         deconv2d(
                             h4, [
                                 self.batch_size, 32, 32, 92], 5, 5, 2, 2, name='g_h5'), train=False))
-                h6 = tf.nn.relu(
+                h6 = lrelu(
                     self.g_bn6(
                         deconv2d(
                             h5, [
@@ -521,43 +505,6 @@ class DCGAN(object):
                     deconv2d(
                         h2, [
                             self.batch_size, s_h, s_w, self.c_dim], name='g_h3'))
-
-    def load_mnist(self):
-        data_dir = os.path.join("./data", self.dataset_name)
-
-        fd = open(os.path.join(data_dir, 'train-images-idx3-ubyte'))
-        loaded = np.fromfile(file=fd, dtype=np.uint8)
-        trX = loaded[16:].reshape((60000, 28, 28, 1)).astype(np.float)
-
-        fd = open(os.path.join(data_dir, 'train-labels-idx1-ubyte'))
-        loaded = np.fromfile(file=fd, dtype=np.uint8)
-        trY = loaded[8:].reshape((60000)).astype(np.float)
-
-        fd = open(os.path.join(data_dir, 't10k-images-idx3-ubyte'))
-        loaded = np.fromfile(file=fd, dtype=np.uint8)
-        teX = loaded[16:].reshape((10000, 28, 28, 1)).astype(np.float)
-
-        fd = open(os.path.join(data_dir, 't10k-labels-idx1-ubyte'))
-        loaded = np.fromfile(file=fd, dtype=np.uint8)
-        teY = loaded[8:].reshape((10000)).astype(np.float)
-
-        trY = np.asarray(trY)
-        teY = np.asarray(teY)
-
-        X = np.concatenate((trX, teX), axis=0)
-        y = np.concatenate((trY, teY), axis=0).astype(np.int)
-
-        seed = 547
-        np.random.seed(seed)
-        np.random.shuffle(X)
-        np.random.seed(seed)
-        np.random.shuffle(y)
-
-        y_vec = np.zeros((len(y), self.y_dim), dtype=np.float)
-        for i, label in enumerate(y):
-            y_vec[i, y[i]] = 1.0
-
-        return X / 255., y_vec
 
     @property
     def model_dir(self):
