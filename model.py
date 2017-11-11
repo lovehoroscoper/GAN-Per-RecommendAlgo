@@ -138,21 +138,27 @@ class DCGAN(object):
         self.d__sum = histogram_summary("d_", self.D_)
         self.G_sum = image_summary("G", self.G)
 
-        # def sigmoid_cross_entropy_with_logits(x, y):
-        #    try:
-        #       return tf.nn.sigmoid_cross_entropy_with_logits(
-        #           logits=x, labels=y)
-        #   except BaseException:
-        #       return tf.nn.sigmoid_cross_entropy_with_logits(
-        #           logits=x, targets=y)
+        def sigmoid_cross_entropy_with_logits(x, y):
+            try:
+                return tf.nn.sigmoid_cross_entropy_with_logits(
+                    logits=x, labels=y)
+            except BaseException:
+                return tf.nn.sigmoid_cross_entropy_with_logits(
+                    logits=x, targets=y)
 
-        self.d_loss_real = -tf.reduce_mean(self.D_logits)
-        self.d_loss_fake = tf.reduce_mean(self.D_logits_)
+        self.d_loss_real = tf.reduce_mean(
+            sigmoid_cross_entropy_with_logits(
+                self.D_logits, tf.ones_like(
+                    self.D)))
+        self.d_loss_fake = tf.reduce_mean(
+            sigmoid_cross_entropy_with_logits(
+                self.D_logits_, tf.zeros_like(
+                    self.D_)))
         # d_loss
         self.d_loss = self.d_loss_real + self.d_loss_fake
 
         # g_loss
-        self.g_loss = - self.d_loss_fake
+        self.g_loss = tf.reduce_mean(self.D_logits) - tf.reduce_mean(self.D_logits_)
 
         self.d_loss_real_sum = scalar_summary("d_loss_real", self.d_loss_real)
         self.d_loss_fake_sum = scalar_summary("d_loss_fake", self.d_loss_fake)
@@ -253,19 +259,19 @@ class DCGAN(object):
 
                 # Update G network
                 _, summary_str = self.sess.run([g_optim, self.g_sum],
-                                               feed_dict={self.z: batch_z})
+                                               feed_dict={self.inputs: batch_images, self.z: batch_z})
                 self.writer.add_summary(summary_str, counter)
 
                 # Run g_optim twice to make sure that d_loss does not go to
                 # zero (different from paper)
                 _, summary_str = self.sess.run([g_optim, self.g_sum],
-                                               feed_dict={self.z: batch_z})
+                                               feed_dict={self.inputs: batch_images, self.z: batch_z})
                 self.writer.add_summary(summary_str, counter)
 
                 errD_fake = self.d_loss_fake.eval({self.z: batch_z})
                 errD_real = self.d_loss_real.eval(
                     {self.inputs: batch_images})
-                errG = self.g_loss.eval({self.z: batch_z})
+                errG = self.g_loss.eval({self.inputs: batch_images, self.z: batch_z})
 
                 counter += 1
                 print(
@@ -310,7 +316,7 @@ class DCGAN(object):
                 h5 = lrelu(self.d_bn5(
                     conv2d(h4, 256 * 4 * 4, 3, 3, 2, 2, name='d_h5_conv')))
                 h6 = linear(tf.reshape(
-                    h5, [self.batch_size, -1]), 1, 'd_h4_lin')
+                    h5, [self.batch_size, -1]), 1, 'd_h6_lin')
 
                 return tf.nn.sigmoid(h6), h6, h5
             else:
@@ -365,7 +371,7 @@ class DCGAN(object):
                     self.g_bn4(
                         deconv2d(
                             h3, [
-                                self.batch_size, 16, 16, 128], 5, 5, 2, 2, name='g_h4')))
+                                self.batch_size, 16, 16, 128], 3, 3, 2, 2, name='g_h4')))
                 h5 = lrelu(
                     self.g_bn5(
                         deconv2d(
@@ -426,45 +432,45 @@ class DCGAN(object):
                         linear(
                             z,
                             self.gfc_dim,
-                            'g_h0_lin'), train=False))
+                            'g_h0_lin')))
                 h1 = lrelu(
                     self.g_bn1(
                         linear(
                             h0,
                             256 * 8 * 8,
-                            'g_h1_lin'), train=False))
+                            'g_h1_lin')))
                 h1 = tf.reshape(h1, [self.batch_size, 2, 2, 256 * 4 * 4])
                 # 6 deconv layers with 2-by-2 upsampling
                 h2 = lrelu(
                     self.g_bn2(
                         deconv2d(
                             h1, [
-                                self.batch_size, 4, 4, 256], 3, 3, 2, 2, name='g_h2'), train=False))
+                                self.batch_size, 4, 4, 256], 3, 3, 2, 2, name='g_h2')))
                 h3 = lrelu(
                     self.g_bn3(
                         deconv2d(
                             h2, [
-                                self.batch_size, 8, 8, 256], 3, 3, 2, 2, name='g_h3'), train=False))
+                                self.batch_size, 8, 8, 256], 3, 3, 2, 2, name='g_h3')))
                 h4 = lrelu(
                     self.g_bn4(
                         deconv2d(
                             h3, [
-                                self.batch_size, 16, 16, 128], 5, 5, 2, 2, name='g_h4'), train=False))
+                                self.batch_size, 16, 16, 128], 3, 3, 2, 2, name='g_h4')))
                 h5 = lrelu(
                     self.g_bn5(
                         deconv2d(
                             h4, [
-                                self.batch_size, 32, 32, 92], 5, 5, 2, 2, name='g_h5'), train=False))
+                                self.batch_size, 32, 32, 92], 5, 5, 2, 2, name='g_h5')))
                 h6 = lrelu(
                     self.g_bn6(
                         deconv2d(
                             h5, [
-                                self.batch_size, 64, 64, 64], 5, 5, 2, 2, name='g_h6'), train=False))
+                                self.batch_size, 64, 64, 64], 5, 5, 2, 2, name='g_h6')))
                 h7 = tf.nn.tanh(
                     self.g_bn7(
                         deconv2d(
                             h6, [
-                                self.batch_size, 128, 128, 3], 5, 5, 2, 2, name='g_h7'), train=False))
+                                self.batch_size, 128, 128, 3], 5, 5, 2, 2, name='g_h7')))
 
                 return h7
             else:
